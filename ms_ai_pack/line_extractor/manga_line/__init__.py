@@ -16,21 +16,24 @@ class _bn_relu_conv(nn.Module):
         self.model = nn.Sequential(
             nn.BatchNorm2d(in_filters, eps=1e-3),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(in_filters, nb_filters, (fw, fh), stride=subsample, padding=(fw//2, fh//2), padding_mode='zeros')
+            nn.Conv2d(in_filters, nb_filters, (fw, fh), stride=subsample,
+                      padding=(fw//2, fh//2), padding_mode='zeros')
         )
 
     def forward(self, x):
         return self.model(x)
 
         # the following are for debugs
-        print("****", np.max(x.cpu().numpy()), np.min(x.cpu().numpy()), np.mean(x.cpu().numpy()), np.std(x.cpu().numpy()), x.shape)
-        for i,layer in enumerate(self.model):
+        print("****", np.max(x.cpu().numpy()), np.min(x.cpu().numpy()),
+              np.mean(x.cpu().numpy()), np.std(x.cpu().numpy()), x.shape)
+        for i, layer in enumerate(self.model):
             if i != 2:
                 x = layer(x)
             else:
                 x = layer(x)
-                #x = nn.functional.pad(x, (1, 1, 1, 1), mode='constant', value=0)
-            print("____", np.max(x.cpu().numpy()), np.min(x.cpu().numpy()), np.mean(x.cpu().numpy()), np.std(x.cpu().numpy()), x.shape)
+                # x = nn.functional.pad(x, (1, 1, 1, 1), mode='constant', value=0)
+            print("____", np.max(x.cpu().numpy()), np.min(x.cpu().numpy()),
+                  np.mean(x.cpu().numpy()), np.std(x.cpu().numpy()), x.shape)
             print(x[0])
         return x
 
@@ -41,12 +44,14 @@ class _u_bn_relu_conv(nn.Module):
         self.model = nn.Sequential(
             nn.BatchNorm2d(in_filters, eps=1e-3),
             nn.LeakyReLU(0.2),
-            nn.Conv2d(in_filters, nb_filters, (fw, fh), stride=subsample, padding=(fw//2, fh//2)),
+            nn.Conv2d(in_filters, nb_filters, (fw, fh),
+                      stride=subsample, padding=(fw//2, fh//2)),
             nn.Upsample(scale_factor=2, mode='nearest')
         )
 
     def forward(self, x):
         return self.model(x)
+
 
 class _shortcut(nn.Module):
     def __init__(self, in_filters, nb_filters, subsample=1):
@@ -56,18 +61,19 @@ class _shortcut(nn.Module):
         if in_filters != nb_filters or subsample != 1:
             self.process = True
             self.model = nn.Sequential(
-                    nn.Conv2d(in_filters, nb_filters, (1, 1), stride=subsample)
-                )
+                nn.Conv2d(in_filters, nb_filters, (1, 1), stride=subsample)
+            )
 
     def forward(self, x, y):
-        #print(x.size(), y.size(), self.process)
+        # print(x.size(), y.size(), self.process)
         if self.process:
             y0 = self.model(x)
-            #print("merge+", torch.max(y0+y), torch.min(y0+y),torch.mean(y0+y), torch.std(y0+y), y0.shape)
+            # print("merge+", torch.max(y0+y), torch.min(y0+y),torch.mean(y0+y), torch.std(y0+y), y0.shape)
             return y0 + y
         else:
-            #print("merge", torch.max(x+y), torch.min(x+y),torch.mean(x+y), torch.std(x+y), y.shape)
+            # print("merge", torch.max(x+y), torch.min(x+y),torch.mean(x+y), torch.std(x+y), y.shape)
             return x + y
+
 
 class _u_shortcut(nn.Module):
     def __init__(self, in_filters, nb_filters, subsample):
@@ -77,7 +83,8 @@ class _u_shortcut(nn.Module):
         if in_filters != nb_filters:
             self.process = True
             self.model = nn.Sequential(
-                nn.Conv2d(in_filters, nb_filters, (1, 1), stride=subsample, padding_mode='zeros'),
+                nn.Conv2d(in_filters, nb_filters, (1, 1),
+                          stride=subsample, padding_mode='zeros'),
                 nn.Upsample(scale_factor=2, mode='nearest')
             )
 
@@ -91,21 +98,26 @@ class _u_shortcut(nn.Module):
 class basic_block(nn.Module):
     def __init__(self, in_filters, nb_filters, init_subsample=1):
         super(basic_block, self).__init__()
-        self.conv1 = _bn_relu_conv(in_filters, nb_filters, 3, 3, subsample=init_subsample)
+        self.conv1 = _bn_relu_conv(
+            in_filters, nb_filters, 3, 3, subsample=init_subsample)
         self.residual = _bn_relu_conv(nb_filters, nb_filters, 3, 3)
-        self.shortcut = _shortcut(in_filters, nb_filters, subsample=init_subsample)
+        self.shortcut = _shortcut(
+            in_filters, nb_filters, subsample=init_subsample)
 
     def forward(self, x):
         x1 = self.conv1(x)
         x2 = self.residual(x1)
         return self.shortcut(x, x2)
 
+
 class _u_basic_block(nn.Module):
     def __init__(self, in_filters, nb_filters, init_subsample=1):
         super(_u_basic_block, self).__init__()
-        self.conv1 = _u_bn_relu_conv(in_filters, nb_filters, 3, 3, subsample=init_subsample)
+        self.conv1 = _u_bn_relu_conv(
+            in_filters, nb_filters, 3, 3, subsample=init_subsample)
         self.residual = _bn_relu_conv(nb_filters, nb_filters, 3, 3)
-        self.shortcut = _u_shortcut(in_filters, nb_filters, subsample=init_subsample)
+        self.shortcut = _u_shortcut(
+            in_filters, nb_filters, subsample=init_subsample)
 
     def forward(self, x):
         y = self.residual(self.conv1(x))
@@ -121,9 +133,11 @@ class _residual_block(nn.Module):
             if i == repetitions - 1 and not is_first_layer:
                 init_subsample = 2
             if i == 0:
-                l = basic_block(in_filters=in_filters, nb_filters=nb_filters, init_subsample=init_subsample)
+                l = basic_block(
+                    in_filters=in_filters, nb_filters=nb_filters, init_subsample=init_subsample)
             else:
-                l = basic_block(in_filters=nb_filters, nb_filters=nb_filters, init_subsample=init_subsample)
+                l = basic_block(
+                    in_filters=nb_filters, nb_filters=nb_filters, init_subsample=init_subsample)
             layers.append(l)
 
         self.model = nn.Sequential(*layers)
@@ -138,10 +152,12 @@ class _upsampling_residual_block(nn.Module):
         layers = []
         for i in range(repetitions):
             l = None
-            if i == 0: 
-                l = _u_basic_block(in_filters=in_filters, nb_filters=nb_filters)#(input)
+            if i == 0:
+                l = _u_basic_block(in_filters=in_filters,
+                                   nb_filters=nb_filters)  # (input)
             else:
-                l = basic_block(in_filters=nb_filters, nb_filters=nb_filters)#(input)
+                l = basic_block(in_filters=nb_filters,
+                                nb_filters=nb_filters)  # (input)
             layers.append(l)
 
         self.model = nn.Sequential(*layers)
@@ -154,26 +170,41 @@ class res_skip(nn.Module):
 
     def __init__(self):
         super(res_skip, self).__init__()
-        self.block0 = _residual_block(in_filters=1, nb_filters=24, repetitions=2, is_first_layer=True)#(input)
-        self.block1 = _residual_block(in_filters=24, nb_filters=48, repetitions=3)#(block0)
-        self.block2 = _residual_block(in_filters=48, nb_filters=96, repetitions=5)#(block1)
-        self.block3 = _residual_block(in_filters=96, nb_filters=192, repetitions=7)#(block2)
-        self.block4 = _residual_block(in_filters=192, nb_filters=384, repetitions=12)#(block3)
-        
-        self.block5 = _upsampling_residual_block(in_filters=384, nb_filters=192, repetitions=7)#(block4)
-        self.res1 = _shortcut(in_filters=192, nb_filters=192)#(block3, block5, subsample=(1,1))
+        self.block0 = _residual_block(
+            in_filters=1, nb_filters=24, repetitions=2, is_first_layer=True)  # (input)
+        self.block1 = _residual_block(
+            in_filters=24, nb_filters=48, repetitions=3)  # (block0)
+        self.block2 = _residual_block(
+            in_filters=48, nb_filters=96, repetitions=5)  # (block1)
+        self.block3 = _residual_block(
+            in_filters=96, nb_filters=192, repetitions=7)  # (block2)
+        self.block4 = _residual_block(
+            in_filters=192, nb_filters=384, repetitions=12)  # (block3)
 
-        self.block6 = _upsampling_residual_block(in_filters=192, nb_filters=96, repetitions=5)#(res1)
-        self.res2 = _shortcut(in_filters=96, nb_filters=96)#(block2, block6, subsample=(1,1))
+        self.block5 = _upsampling_residual_block(
+            in_filters=384, nb_filters=192, repetitions=7)  # (block4)
+        # (block3, block5, subsample=(1,1))
+        self.res1 = _shortcut(in_filters=192, nb_filters=192)
 
-        self.block7 = _upsampling_residual_block(in_filters=96, nb_filters=48, repetitions=3)#(res2)
-        self.res3 = _shortcut(in_filters=48, nb_filters=48)#(block1, block7, subsample=(1,1))
+        self.block6 = _upsampling_residual_block(
+            in_filters=192, nb_filters=96, repetitions=5)  # (res1)
+        # (block2, block6, subsample=(1,1))
+        self.res2 = _shortcut(in_filters=96, nb_filters=96)
 
-        self.block8 = _upsampling_residual_block(in_filters=48, nb_filters=24, repetitions=2)#(res3)
-        self.res4 = _shortcut(in_filters=24, nb_filters=24)#(block0,block8, subsample=(1,1))
+        self.block7 = _upsampling_residual_block(
+            in_filters=96, nb_filters=48, repetitions=3)  # (res2)
+        # (block1, block7, subsample=(1,1))
+        self.res3 = _shortcut(in_filters=48, nb_filters=48)
 
-        self.block9 = _residual_block(in_filters=24, nb_filters=16, repetitions=2, is_first_layer=True)#(res4)
-        self.conv15 = _bn_relu_conv(in_filters=16, nb_filters=1, fh=1, fw=1, subsample=1)#(block7)
+        self.block8 = _upsampling_residual_block(
+            in_filters=48, nb_filters=24, repetitions=2)  # (res3)
+        # (block0,block8, subsample=(1,1))
+        self.res4 = _shortcut(in_filters=24, nb_filters=24)
+
+        self.block9 = _residual_block(
+            in_filters=24, nb_filters=16, repetitions=2, is_first_layer=True)  # (res4)
+        self.conv15 = _bn_relu_conv(
+            in_filters=16, nb_filters=1, fh=1, fw=1, subsample=1)  # (block7)
 
     def forward(self, x):
         x0 = self.block0(x)
@@ -199,17 +230,18 @@ class res_skip(nn.Module):
 
         return y
 
+
 class MyDataset(Dataset):
     def __init__(self, image_paths, transform=None):
         self.image_paths = image_paths
         self.transform = transform
-        
+
     def get_class_label(self, image_name):
         # your method here
         head, tail = os.path.split(image_name)
-        #print(tail)
+        # print(tail)
         return tail
-        
+
     def __getitem__(self, index):
         image_path = self.image_paths[index]
         x = Image.open(image_path)
@@ -217,9 +249,10 @@ class MyDataset(Dataset):
         if self.transform is not None:
             x = self.transform(x)
         return x, y
-    
+
     def __len__(self):
         return len(self.image_paths)
+
 
 class MangaLineDetector:
     def __init__(self, model):
@@ -227,11 +260,12 @@ class MangaLineDetector:
 
     @classmethod
     def from_pretrained(cls, cache_dir=None, pretrained_model_or_path="lllyasviel/Annotators", filename="erika.pth", device="cpu"):
-        
+
         if os.path.isdir(pretrained_model_or_path):
             model_path = os.path.join(pretrained_model_or_path, filename)
         else:
-            model_path = hf_hub_download(pretrained_model_or_path, filename, cache_dir=cache_dir)
+            model_path = hf_hub_download(
+                pretrained_model_or_path, filename, cache_dir=cache_dir)
 
         model = res_skip()
         ckpt = torch.load(model_path)
@@ -240,7 +274,7 @@ class MangaLineDetector:
                 ckpt[key.replace('module.', '')] = ckpt[key]
                 del ckpt[key]
         model.load_state_dict(ckpt)
-        
+
         if device == "cpu":
             model.cpu()
         elif device == "cuda":
@@ -248,27 +282,29 @@ class MangaLineDetector:
             if is_cuda:
                 model.cuda()
             else:
-                print ("gpu not available")
+                print("gpu not available")
                 model.cpu()
         model.eval()
-        
+
         return cls(model)
 
     def image_type_transform(self, input_image, output_type="tensor"):
-        # cv2         
+        # cv2
         input_type = "None"
         to_tensor = transforms.ToTensor()
         to_pil = transforms.ToPILImage()
-        
+
         if isinstance(input_image, np.ndarray):
             input_type = "cv2 image"
             if output_type == "tensor":
-                output_image = to_tensor(cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB))
+                output_image = to_tensor(cv2.cvtColor(
+                    input_image, cv2.COLOR_BGR2RGB))
             elif output_type == "pil":
-                output_image = Image.fromarray(cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB))
+                output_image = Image.fromarray(
+                    cv2.cvtColor(input_image, cv2.COLOR_BGR2RGB))
             elif output_type == "cv2":
                 output_image = input_image
-        # pil 
+        # pil
         elif isinstance(input_image, Image.Image):
             input_type = "pil image"
             if output_type == "tensor":
@@ -276,8 +312,9 @@ class MangaLineDetector:
             elif output_type == "pil":
                 output_image = input_image
             elif output_type == "cv2":
-                output_image = cv2.cvtColor(np.array(input_image), cv2.COLOR_RGB2BGR)
-        # tensor 
+                output_image = cv2.cvtColor(
+                    np.array(input_image), cv2.COLOR_RGB2BGR)
+        # tensor
         elif isinstance(input_image, torch.Tensor):
             input_type = "tensor image"
             if output_type == "tensor":
@@ -287,39 +324,36 @@ class MangaLineDetector:
             elif output_type == "cv2":
                 numpy_image = input_image.permute(1, 2, 0).numpy()
                 output_image = (numpy_image * 255).astype(np.uint8)
-        
-        print ("input image is %s" % input_type)
+
+        print("input image is %s" % input_type)
         return output_image
 
     def __call__(self, input_image, output_file=None, detect_resolution=512, output_type="pil", upscale_method="INTER_CUBIC", **kwargs):
         device = next(iter(self.model.parameters())).device
-        print ("process %s with %s" % (self.__class__.__name__,device) )
-        
+        print("process %s with %s" % (self.__class__.__name__, device))
+
+        input_image = self.image_type_transform(input_image, output_type="cv2")
+
         height, width, channels = input_image.shape
         original_size = (width, height)
         detect_size = (detect_resolution, detect_resolution)
-        
+
         resized_image = cv2.resize(input_image, detect_size)
-                
+
         with torch.no_grad():
             detected_map = cv2.cvtColor(resized_image, cv2.COLOR_RGB2GRAY)
             detected_map = torch.from_numpy(detected_map).float().to(device)
             detected_map = rearrange(detected_map, 'h w -> 1 1 h w')
 
             line = self.model(detected_map)
-            line = line.cpu().numpy()[0,0,:,:]
+            line = line.cpu().numpy()[0, 0, :, :]
             line[line > 255] = 255
             line[line < 0] = 0
             line = line.astype(np.uint8)
-            
+
         line = cv2.resize(line, original_size)
-        
+
         if output_file:
             cv2.imwrite(output_file, line)
-        
+            
         return line
-        
-        
-# mangaline = MangaLineDetector.from_pretrained(device="cuda", cache_dir=r"C:\_Dev\temp\line",pretrained_model_or_path=r"C:\_Dev\temp")
-# cv2_image = cv2.imread(r"C:\_Dev\temp\0205.jpg")
-# mangaline(input_image=cv2_image,output_file=r"C:\_Dev\temp\xxx.png", detect_resolution=512)

@@ -1,4 +1,4 @@
-__version__ = "0.0.6"
+__version__ = "0.0.1"
 
 from .line_extractor.lineart import LineartDetector
 from .line_extractor.lineart_anime import LineartAnimeDetector
@@ -6,6 +6,7 @@ from .line_extractor.mlsd import MLSDdetector
 from .line_extractor.pidi import PidiNetDetector
 from .line_extractor.hed import HEDdetector
 from .line_extractor.canny import CannyDetector
+from .line_extractor.manga_line import MangaLineDetector
 
 from .depth_solve.midas import MidasDetector
 from .depth_solve.leres import LeresDetector
